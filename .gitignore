@@ -1,0 +1,10 @@
+# Local tooling and editor files
+.claude/
+CLAUDE.md
+.vscode/
+.idea/
+*.swp
+.DS_Store
+
+# Scratch output
+scratch/
