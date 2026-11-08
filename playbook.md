@@ -67,6 +67,61 @@ The two stages teams skip, and must not: **governance enforced at retrieval time
 
 ---
 
+## Governance model
+
+The reference architecture shows governance as a side box that governs enrichment and is enforced at retrieval. This section fills in that box. It covers five controls: classification, permissions, lifecycle, provenance and audit. For each one, agree with the client what it means for them, which metadata fields carry it, and where it is checked.
+
+Most of these controls have two halves: the fields are set at ingest and checked again on every query. The second half is needed because the facts behind the fields change after indexing. Documents are reclassified, people change teams, procedures are superseded and files are deleted. If the check only runs at ingest, the index keeps serving the old state until the next full re-index.
+
+| Control | What to decide | Carried by | Checked at |
+|---|---|---|---|
+| Classification | the sensitivity levels, and who may assign each | `classification` | ingest (assigned), retrieval (filter) |
+| Permissions | which roles and departments see which classifications, plus per-document exceptions from the source system | `owning_department`, `classification`, optional `access_groups` | retrieval, inside the search |
+| Lifecycle | the review interval per document type, what happens when it lapses, how supersession and deletion reach the index | `last_reviewed_date`, `version`, `supersedes`, `source_of_truth` | ingest, a scheduled sync, retrieval |
+| Provenance | what every chunk and every answer must trace back to | document ID, `version`, source location, ingestion time | ingest (stamped on chunks), answer (cited) |
+| Audit | what each query logs, who may read the log, how long it is kept | the audit log | every query |
+
+On every query, the retrieval-time checks run in this order:
+
+```mermaid
+flowchart LR
+  Q[Query + asker identity] --> G[Resolve groups from identity provider]
+  G --> F[Build filter: classification, access groups, lifecycle state]
+  F --> R[Hybrid retrieval + rerank inside the filter]
+  R --> A[Answer cites document IDs and versions]
+  R --> L[Audit log: filter applied, retrieved and cited IDs]
+  A --> L
+```
+
+**Classification.** Keep the scale short. Four levels (for example public, internal, confidential and restricted) are enough for most organisations. Derive the level at ingest from where the document lives when that location is already access-controlled, and send anything that cannot be classified to a review queue. Until someone reviews it, treat an unclassified document as the highest level.
+
+**Permissions.** Four rules make permission-aware retrieval hold up in practice:
+
+1. Apply the permission filter inside the search, so ranking only ever sees documents the asker may read. Filtering after retrieval causes two problems: the top results can all be removed, leaving a poor answer with no explanation, and counts, snippets or "access denied" notices can reveal that a restricted document exists.
+2. Resolve the asker's groups from the identity provider at query time. A copy taken at ingest goes out of date as soon as someone moves team.
+3. Deny by default. A document whose access metadata is missing or unreadable is excluded until it is fixed.
+4. Agree with the client's security team how quickly a revoked permission must take effect in the knowledge base, then set the access-sync schedule to meet that figure.
+
+Managed platforms differ in how much of this they handle. Most offer metadata filters at query time. Find out whether the platform also syncs access lists from the source systems, or whether keeping `access_groups` current is left to you.
+
+**Lifecycle.**
+
+- Set a review interval per document type (for example 12 months for procedures and 24 for reference material). When `last_reviewed_date` passes it, notify the owner, and decide whether overdue documents are flagged in answers, ranked lower or excluded.
+- When a new version is published with `supersedes` set, remove the old version from the default index on the same sync. Keep superseded versions searchable only for people who need the history, such as quality auditors.
+- Deleting a document at source must remove its chunks and embeddings from the index. Retention rules and legal holds apply to the index and the audit log in the same way they apply to the source.
+
+**Provenance.** Stamp every chunk with its document ID, version, source location and ingestion time, and have every answer cite the documents and versions it used. Users can then check the source, reviewers can trace a wrong answer back to the chunk that caused it, and the system can re-check permissions and lifecycle against those IDs before the answer is shown.
+
+**Audit.** For each query, log who asked and when, the query text (subject to the client's privacy rules), the filter that was applied (the asker's resolved groups and the lifecycle constraints), the IDs of the chunks retrieved and the IDs cited in the answer. Log IDs rather than content, so the audit log does not become a second copy of restricted material. Decide who may read the log and how long it is kept.
+
+**Ownership.** Each control needs a named owner on the client side. One workable split: document owners keep metadata and review dates current; a knowledge-management lead or data steward owns the classification scheme and the review queue; the security team owns the access model and the revocation target; the platform team owns the sync jobs and the audit log. Record it as a RACI before the pilot starts.
+
+**Testing.** Test governance with a fixed test set, in the same way as retrieval quality. For permissions, create test users with known scopes and write queries whose best answers sit in documents some of those users may not see. The test passes only if no answer uses a document its asker cannot read. For lifecycle, write queries where a superseded version is the closest match; the answer must come from the current version or say that nothing was found. Run both suites on every change to the index, the sync jobs or the access model.
+
+**Outputs of this step:** the classification scheme, an access matrix (roles by department by classification), a lifecycle policy per document type, the provenance fields, an audit-log specification, the ownership RACI and the governance test set.
+
+---
+
 ## Platform and technology selection
 
 A decision framework, not a single answer.
@@ -133,7 +188,7 @@ A maturity model the client can self-assess against (sources mapped, metadata co
 
 1. Run Phase 0 and produce the current-state map and remediation backlog.
 2. Agree the information architecture, metadata schema, and document standard.
-3. Define the governance model (classification, permissions, lifecycle, provenance, audit).
+3. Define the governance model (classification, permissions, lifecycle, provenance, audit), following the Governance model section above.
 4. Select the platform with the decision framework and document the reasoning.
 5. Pick one high-value use case, build it on the chosen stack with evaluation, and use it to validate the architecture before expanding.
 
