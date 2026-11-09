@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-11-10
+
+### Added
+
+- A before/after example in the Metadata and document standards section of `playbook.md` (spec item 5). It takes one invented machining process sheet from a file share (three copies at two revisions, no metadata, tab-aligned operations, the machine named only in a note) to a single controlled copy with every core field filled in, real headings and its operations kept as a table. A table shows what that changes for four retrieval questions, and a short list says which fields a script can derive during a backfill, which the owner should confirm, and why `last_reviewed_date` stays empty until someone has read the document.
+
 ## 2026-10-06
 
 ### Added
