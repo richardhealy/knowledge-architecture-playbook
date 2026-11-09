@@ -11,7 +11,7 @@ The spec for this playbook is the `groundwork` page in the AI Portfolio Projects
 | 3. Reference AI architecture, diagrammed | Done (Mermaid flowchart) |
 | Governance model (classification, permissions, lifecycle, provenance, audit) | Done 2026-10-06 (Governance model section, with a query-time diagram) |
 | 4. Platform selection | Done |
-| 5. Metadata and document standards | Partly. The core fields and the "good document" standard are there. The before/after example the spec asks for is missing. |
+| 5. Metadata and document standards | Done 2026-11-10 (core fields, the "good document" standard, and a before/after example: one process sheet as found and as the controlled copy, what changes for retrieval, and who fills in each field) |
 | 6. Historical and future sensor data | Done |
 | 7. Roadmap and maturity model | Partly. The crawl, walk, run roadmap is there. The maturity model is one sentence listing five dimensions, with no levels to self-assess against. |
 | 8. Mistakes to avoid | Partly. The spec asks for the pilot-failure statistic; the playbook only says the rate is high, with no figure or source. |
@@ -25,8 +25,7 @@ The spec for this playbook is the `groundwork` page in the AI Portfolio Projects
 
 ## Next
 
-1. A before/after metadata example (spec item 5).
-2. A maturity model with levels per dimension (spec item 7).
-3. A sourced pilot-failure figure in Mistakes to avoid (spec item 8).
-4. README refresh, including an honest note on `litmus` and `steward`.
-5. Project dossier under `docs/dossier/`.
+1. A maturity model with levels per dimension (spec item 7).
+2. A sourced pilot-failure figure in Mistakes to avoid (spec item 8).
+3. README refresh, including an honest note on `litmus` and `steward`.
+4. Project dossier under `docs/dossier/`.

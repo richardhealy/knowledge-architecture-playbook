@@ -151,6 +151,94 @@ Recommended core metadata, every document:
 
 The "good document" standard: real title, headings, tables preserved as tables, one controlled copy, complete core metadata. Provide a one-page template and put it where new documents are created, so the corpus improves at the source rather than only in cleanup.
 
+**Before and after.** Here is one document taken through the standard: a machining process sheet of the kind most manufacturers keep on file shares. The part, machines and people are invented.
+
+Before, as the ingestion job finds it:
+
+```text
+\\fs02\Production\Cell 4\Old\PS-114 rev C FINAL (2).docx
+  file properties   last saved by "jsmith", modified 2023-11-02
+  other copies      \\fs02\Production\Cell 4\PS-114 rev C.docx (same text)
+                    \\fs01\Quality\Process sheets\PS-114.pdf (rev B)
+
+PROCESS SHEET
+Part BH-220   Rev C
+Op  Description        Tool   Speed  Feed
+10  Face               CNMG   220    0.20
+20  Rough turn OD      CNMG   220    0.25
+30  Finish turn bore   DCMT   260    0.08
+Note: L-07 only, L-05 won't hold the bore tolerance (ask Dave)
+```
+
+"PROCESS SHEET" is bold body text rather than a heading, and the operations are lined up with tabs rather than held in a table. What the pipeline can make of it:
+
+- **Title.** "PROCESS SHEET", the same as every other process sheet, so it says nothing in a result list or a citation.
+- **Version.** Three copies at two revisions, with nothing saying which is current. The rev B PDF still gives 0.12 mm/rev for op 30, and the two rev C copies take two of the top results with the same text.
+- **Freshness.** The only date is when someone last saved a copy, which says nothing about whether anyone has checked the content.
+- **Access.** There is no classification, so under the Governance model above it is treated as the highest level until someone reviews it, and most people cannot retrieve it at all.
+- **Structure.** Chunked as running text, a line such as `30  Finish turn bore  DCMT  260  0.08` reaches the model without its column headings or units, so a question about the bore finish feed can be answered with the speed, or with another operation's row.
+- **Equipment.** Lathe L-07 appears only in a free-text note. Nothing links the sheet to the machine, so "which procedures apply to L-07?" misses it.
+
+After, as the one controlled copy, with the core metadata as front matter:
+
+```markdown
+---
+title: "PS-114 Bearing housing BH-220: turning operations"
+type: process_sheet
+owning_department: Manufacturing Engineering
+author: J. Smith
+created_date: 2016-09-05
+last_reviewed_date: 2026-10-20
+version: C
+supersedes: B
+source_of_truth: true
+classification: internal
+entities:
+  equipment: [L-07]
+  process: [turning]
+  product: [BH-220]
+---
+
+# PS-114 Bearing housing BH-220: turning operations
+
+## Scope
+
+Part BH-220, rev C. Machine: lathe L-07 only, because L-05 cannot hold the bore tolerance.
+
+## Operations
+
+| Op | Description | Tool | Speed (m/min) | Feed (mm/rev) |
+|---|---|---|---|---|
+| 10 | Face | CNMG | 220 | 0.20 |
+| 20 | Rough turn OD | CNMG | 220 | 0.25 |
+| 30 | Finish turn bore | DCMT | 260 | 0.08 |
+
+## Change history
+
+| Version | Date | Change |
+|---|---|---|
+| C | 2021-03-14 | Op 30 feed cut from 0.12 to 0.08 mm/rev |
+| B | 2018-04-11 | Op 20 tool changed to CNMG |
+| A | 2016-09-05 | First issue |
+```
+
+The other two copies leave the default index: the rev C duplicate is deleted, and the rev B PDF is marked superseded, so only people who need the history (such as quality auditors) still see it. Front matter is just one way to carry the fields. In SharePoint they would be site columns, and in a document management system its own properties. What matters is that every core field is filled in and the ingestion job can read it.
+
+What changes for retrieval:
+
+| Question | Before | After |
+|---|---|---|
+| "What feed do we use to finish the BH-220 bore?" | Can come back as 0.12 from rev B, or as a number without its column heading | 0.08 mm/rev from the current copy, cited as PS-114 rev C. With document-type-aware chunking the operations table stays one chunk, headings included |
+| "Which procedures apply to lathe L-07?" | Misses PS-114, because L-07 is only in a free-text note | Finds it through `entities.equipment`, as a metadata filter or a graph edge |
+| "Is this still right?" | Cannot tell: the only date is a file save | Reviewed on 2026-10-20, and flagged to the owner when the review interval for process sheets runs out |
+| Who can retrieve it | Almost nobody, until someone classifies it | Everyone with internal access |
+
+**Who fills in which field.** Backfilling a large corpus by hand is not realistic, but a script can propose most fields and only a few need a person:
+
+- Derive with a script: `type` (from the folder or the template the file came from), `owning_department` (from the share), `created_date` (from the change history or title block, else the earliest copy found), `version` (from the file name or title block, checked across the copies) and `entities` (part numbers, machine IDs and process names matched against the ERP item master and the equipment register).
+- Have the owner confirm: `title` where the document has none, `author` (file properties record who last saved a copy, which is often someone else), `classification` (suggested from where the file lives), and `source_of_truth` and `supersedes` (which copy wins).
+- Leave `last_reviewed_date` empty until the owner has read the document, and count an empty value as overdue. Stamping it during the backfill makes every stale document look freshly checked, and the lifecycle rules in the Governance model then have nothing to work with.
+
 ---
 
 ## Historical and future (sensor) data
